@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, X, Trash2, Edit2, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Search, Plus, X, Trash2, Edit2, ChevronLeft, ChevronRight, Download, Mail, Phone, Lock } from "lucide-react";
 import { useEmployees } from "../contexts/EmployeeContext";
 
 export default function Leads() {
@@ -11,17 +11,27 @@ export default function Leads() {
   const [isEditing, setIsEditing] = useState(false);
   const [imageValidationStatus, setImageValidationStatus] = useState({ loading: false, msg: "" });
 
-  // ✅ Pagination Settings Restored
+  // Pagination Settings Restored
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5; // Limits rows to 5 per page section
 
   // Consolidated form tracking state object wrapper
-  const [formState, setFormState] = useState({ name: "", email: "", skill: "", joiningDate: "", salaryMonth: "", address: "", image: "" });
+  const [formState, setFormState] = useState({ 
+    name: "", 
+    email: "", 
+    skill: "", 
+    joiningDate: "", 
+    salaryMonth: "", 
+    address: "", 
+    image: "",
+    phone: "",
+    password: "" 
+  });
 
   const handleOpenAddForm = () => {
     setIsEditing(false);
     setImageValidationStatus({ loading: false, msg: "" });
-    setFormState({ name: "", email: "", skill: "", joiningDate: "", salaryMonth: "", address: "", image: "" });
+    setFormState({ name: "", email: "", skill: "", joiningDate: "", salaryMonth: "", address: "", image: "", phone: "", password: "" });
     setShowAddForm(true);
   };
 
@@ -29,11 +39,15 @@ export default function Leads() {
     e.stopPropagation(); // Avoid triggering overview drawer
     setIsEditing(true);
     setImageValidationStatus({ loading: false, msg: "" });
-    setFormState(employee);
+    setFormState({
+      ...employee,
+      phone: employee.phone || "",
+      password: employee.password || ""
+    });
     setShowAddForm(true);
   };
 
-  // ✅ Face Detection and Upload Handler function
+  // Face Detection and Upload Handler function
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -93,7 +107,7 @@ export default function Leads() {
     setShowAddForm(false);
   };
 
-  // ✅ Canvas Downloader function
+  // Canvas Downloader function
   const downloadIDCard = (emp) => {
     const canvas = document.createElement("canvas");
     canvas.width = 400;
@@ -174,7 +188,7 @@ export default function Leads() {
     emp.skill.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // ✅ Pagination Calculations Restored
+  // Pagination Calculations Restored
   const endOffset = currentPage * itemsPerPage;
   const startOffset = endOffset - itemsPerPage;
   const currentPaginatedItems = filtered.slice(startOffset, endOffset);
@@ -198,12 +212,12 @@ export default function Leads() {
           <input type="text" placeholder="Search employees..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="w-full h-10 pl-10 pr-4 rounded-lg bg-card border text-sm focus:outline-none" />
         </div>
 
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-secondary/50 text-muted-foreground">
                 <th className="py-3 px-4 text-left font-medium w-16">S.No</th>
-                <th className="py-3 px-4 text-left font-medium">Employee Info</th>
+                <th className="py-3 px-4 text-left font-medium min-w-[260px]">Employee Info</th>
                 <th className="py-3 px-4 text-left font-medium">Designation</th>
                 <th className="py-3 px-4 text-left font-medium">Joining Date</th>
                 <th className="py-3 px-4 text-left font-medium">Salary (Month)</th>
@@ -215,9 +229,9 @@ export default function Leads() {
             <tbody>
               {currentPaginatedItems.map((emp, i) => (
                 <tr key={emp.id} onClick={() => setDrawerLead(emp)} className="border-b last:border-0 hover:bg-secondary/30 cursor-pointer transition">
-                  <td className="py-3 px-4 text-muted-foreground font-medium">{startOffset + i + 1}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
+                  <td className="py-4 px-4 text-muted-foreground font-medium">{startOffset + i + 1}</td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-start gap-3">
                       {emp.image && (emp.image.startsWith("http") || emp.image.startsWith("data:")) ? (
                         <img 
                           src={emp.image} 
@@ -226,27 +240,48 @@ export default function Leads() {
                             e.target.style.display = 'none';
                             if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
                           }}
-                          className="w-9 h-9 rounded-full object-cover border bg-secondary shrink-0" 
+                          className="w-10 h-10 rounded-full object-cover border bg-secondary shrink-0 mt-0.5" 
                         />
                       ) : null}
                       <div 
-                        className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs shrink-0 border border-primary/20"
+                        className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs shrink-0 border border-primary/20 mt-0.5"
                         style={{ display: (emp.image && (emp.image.startsWith("http") || emp.image.startsWith("data:"))) ? 'none' : 'flex' }}
                       >
                         {emp.name.split(" ").map((n) => n[0]).join("")}
                       </div>
-                      <div>
-                        <p className="font-semibold text-foreground">{emp.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono select-all">{emp.empId}</p>
+                      
+                      {/* ✅ MODIFIED: Added Stacked Email, Phone, and Password blocks inside the info column */}
+                      <div className="space-y-1">
+                        <p className="font-bold text-foreground leading-none">{emp.name}</p>
+                        <p className="text-xs text-muted-foreground font-mono font-medium">{emp.empId}</p>
+                        
+                        <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground/80 pt-0.5">
+                          <span className="flex items-center gap-1.5">
+                            <Mail size={11} className="text-muted-foreground/50 shrink-0" />
+                            {emp.email}
+                          </span>
+                          {emp.phone && (
+                            <span className="flex items-center gap-1.5">
+                              <Phone size={11} className="text-muted-foreground/50 shrink-0" />
+                              {emp.phone}
+                            </span>
+                          )}
+                          {emp.password && (
+                            <span className="flex items-center gap-1.5 font-mono text-[10px]">
+                              <Lock size={11} className="text-muted-foreground/50 shrink-0" />
+                              Key: {emp.password}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-muted-foreground font-medium">{emp.skill}</td>
-                  <td className="py-3 px-4 text-muted-foreground">{emp.joiningDate}</td>
-                  <td className="py-3 px-4 font-semibold text-foreground">${emp.salaryMonth.toLocaleString()}</td>
-                  <td className="py-3 px-4 font-semibold text-emerald-600">${(emp.salaryMonth * 12).toLocaleString()}</td>
-                  <td className="py-3 px-4 text-muted-foreground max-w-[140px] truncate">{emp.address}</td>
-                  <td className="py-3 px-4 text-right">
+                  <td className="py-4 px-4 text-muted-foreground font-medium">{emp.skill}</td>
+                  <td className="py-4 px-4 text-muted-foreground">{emp.joiningDate}</td>
+                  <td className="py-4 px-4 font-semibold text-foreground">${emp.salaryMonth.toLocaleString()}</td>
+                  <td className="py-4 px-4 font-semibold text-emerald-600">${(emp.salaryMonth * 12).toLocaleString()}</td>
+                  <td className="py-4 px-4 text-muted-foreground max-w-[140px] truncate">{emp.address}</td>
+                  <td className="py-4 px-4 text-right">
                     <div className="flex justify-end gap-1.5" onClick={e => e.stopPropagation()}>
                       <button onClick={(e) => handleOpenEditForm(emp, e)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-secondary text-muted-foreground hover:text-foreground transition">
                         <Edit2 className="w-4 h-4" />
@@ -266,7 +301,7 @@ export default function Leads() {
             </tbody>
           </table>
 
-          {/* ✅ RIGHT CORNER ALIGNED PAGINATION CONTROL RESTORED PERFECTLY */}
+          {/* Pagination control footer row */}
           <div className="flex items-center justify-end px-6 py-3.5 bg-secondary/20 border-t border-border gap-5 text-sm select-none">
             <span className="text-muted-foreground font-medium">
               {filtered.length > 0 ? startOffset + 1 : 0}–{Math.min(endOffset, filtered.length)} of {filtered.length}
@@ -276,7 +311,6 @@ export default function Leads() {
                 onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
                 className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-card text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
-                title="Previous Page"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -284,7 +318,6 @@ export default function Leads() {
                 onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages || totalPages === 0}
                 className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-card text-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-secondary transition-colors"
-                title="Next Page"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -329,6 +362,7 @@ export default function Leads() {
                 <div className="w-full bg-slate-800/60 backdrop-blur-md rounded-xl p-3 border border-slate-700/50 text-left space-y-2 font-mono text-[11px]">
                   <div className="flex justify-between"><span className="text-slate-400">ID NUMBER:</span><span className="text-white font-bold">{drawerLead.empId || "N/A"}</span></div>
                   <div className="flex justify-between"><span className="text-slate-400">EMAIL:</span><span className="text-white truncate max-w-[140px]">{drawerLead.email}</span></div>
+                  {drawerLead.phone && <div className="flex justify-between"><span className="text-slate-400">PHONE:</span><span className="text-white">{drawerLead.phone}</span></div>}
                   <div className="flex justify-between"><span className="text-slate-400">JOINED:</span><span className="text-white">{drawerLead.joiningDate}</span></div>
                   <div className="flex justify-between"><span className="text-slate-400">LOCATION:</span><span className="text-white truncate max-w-[120px]">{drawerLead.address}</span></div>
                 </div>
@@ -364,6 +398,30 @@ export default function Leads() {
               <div className="space-y-4">
                 <div><label className="text-sm font-medium text-foreground mb-1.5 block">Full Name</label><input value={formState.name} onChange={e => setFormState({...formState, name: e.target.value})} className="w-full h-10 px-3 rounded-lg bg-secondary border text-sm" /></div>
                 <div><label className="text-sm font-medium text-foreground mb-1.5 block">Email Address</label><input type="email" value={formState.email} onChange={e => setFormState({...formState, email: e.target.value})} className="w-full h-10 px-3 rounded-lg bg-secondary border text-sm" /></div>
+                
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Phone Number</label>
+                  <input 
+                    type="tel" 
+                    placeholder="e.g., +1 (555) 019-2831" 
+                    value={formState.phone} 
+                    onChange={e => setFormState({...formState, phone: e.target.value})} 
+                    className="w-full h-10 px-3 rounded-lg bg-secondary border text-sm focus:outline-none" 
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Portal Login Password</label>
+                  <input 
+                    type="password" 
+                    placeholder="Create workspace login password..." 
+                    value={formState.password} 
+                    onChange={e => setFormState({...formState, password: e.target.value})} 
+                    className="w-full h-10 px-3 rounded-lg bg-secondary border text-sm focus:outline-none font-sans" 
+                    required={!isEditing} 
+                  />
+                </div>
+
                 <div><label className="text-sm font-medium text-foreground mb-1.5 block">Skill / Role</label><input value={formState.skill} onChange={e => setFormState({...formState, skill: e.target.value})} className="w-full h-10 px-3 rounded-lg bg-secondary border text-sm" /></div>
                 
                 {/* Portrait file validation upload block */}

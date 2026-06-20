@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { useEmployees } from "../contexts/EmployeeContext";
 import {
   LayoutDashboard, Users, UserCircle, TrendingUp, CheckSquare,
-  Calendar, Headphones, BarChart3, Settings, Shield, ChevronLeft,
-  ChevronRight, ChevronDown, Zap, Layers, Briefcase, Cog,
+  ChevronLeft, ChevronRight, ChevronDown, Zap, Layers, Briefcase, Cog, ListTodo, LogOut, Settings, Shield
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -13,7 +13,6 @@ const navGroups = [
     icon: Layers,
     items: [
       { label: "Dashboard", icon: LayoutDashboard, path: "/" },
-      // { label: "Analytics", icon: BarChart3, path: "/analytics" },
     ],
   },
   {
@@ -21,17 +20,16 @@ const navGroups = [
     icon: Briefcase,
     items: [
       { label: "Employee Details", icon: Users, path: "/leads" },
-      { label: "Employee Attendance", icon: UserCircle, path: "/customers" },
-      { label: "Salary Details", icon: TrendingUp, path: "/pipeline" },
+      { label: "Tasks", icon: CheckSquare, path: "/tasks" },
+      { label: "Salary Details", icon: TrendingUp, path: "/salary" },
     ],
   },
   {
     label: "Employee Workspace",
     icon: CheckSquare,
     items: [
-      { label: "Tasks", icon: CheckSquare, path: "/tasks" },
-      { label: "Calendar", icon: Calendar, path: "/calendar" },
-      { label: "Support", icon: Headphones, path: "/support" },
+      { label: "Employee Attendance", icon: UserCircle, path: "/attendance" },
+      { label: "Task Status", icon: ListTodo, path: "/task-status" },
     ],
   },
   {
@@ -46,7 +44,25 @@ const navGroups = [
 
 function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
   const location = useLocation();
-  const hasActiveChild = group.items.some((item) => location.pathname === item.path);
+  const { currentRole } = useEmployees(); 
+
+  const visibleItems = group.items.filter((item) => {
+    if (currentRole !== "admin") {
+      if (item.path === "/task-status" || item.path === "/roles") {
+        return false; 
+      }
+    }
+    return true;
+  });
+
+  if (visibleItems.length === 0) {
+    return null;
+  }
+
+  const hasActiveChild = visibleItems.some((item) => location.pathname === item.path);
+
+  // ✅ FIXED: Dynamically renames the text string label to "Employee" for general workspace portal views
+  const displayLabel = (group.label === "Admin" && currentRole !== "admin") ? "Employee" : group.label;
 
   return (
     <div className="mb-1">
@@ -60,7 +76,7 @@ function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
           }`}
         >
           <group.icon className="w-4 h-4 shrink-0" />
-          <span className="flex-1 text-left">{group.label}</span>
+          <span className="flex-1 text-left">{displayLabel}</span>
           <motion.div
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={{ duration: 0.2 }}
@@ -84,7 +100,7 @@ function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
             className="overflow-hidden"
           >
             <div className={`space-y-0.5 ${!collapsed ? "mt-1 ml-3 pl-3 border-l border-sidebar-border/50" : "mt-1"}`}>
-              {group.items.map((item) => {
+              {visibleItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <NavLink
@@ -128,11 +144,15 @@ function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { currentUser, currentRole, logoutUser } = useEmployees();
 
   const [openGroups, setOpenGroups] = useState(() => {
     const initial = {};
     navGroups.forEach((group) => {
-      initial[group.label] = group.items.some((item) => item.path === location.pathname);
+      initial[group.label] = group.items.some((item) => {
+        if (currentRole !== "admin" && (item.path === "/task-status" || item.path === "/roles")) return false;
+        return item.path === location.pathname;
+      });
     });
     return initial;
   });
@@ -170,21 +190,33 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {!collapsed && (
-        <div className="mx-3 mb-3 p-3 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/50">
+      {!collapsed && currentUser && (
+        <div className="mx-3 mb-1 p-3 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/50">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-semibold text-xs">
-              JD
-            </div>
+            <img 
+              src={currentUser.image || "https://api.dicebear.com/7.x/initials/svg?seed=User"} 
+              alt="" 
+              className="w-8 h-8 rounded-full object-cover border bg-background shrink-0"
+            />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-sidebar-primary-foreground truncate">John Doe</p>
-              <p className="text-[10px] text-sidebar-muted truncate">Admin</p>
+              <p className="text-xs font-bold text-sidebar-primary-foreground truncate">{currentUser.name}</p>
+              <p className="text-[10px] text-sidebar-muted uppercase tracking-wider font-semibold truncate font-mono">
+                {currentRole === "admin" ? "Management Core" : currentUser.skill || "Employee"}
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      <div className="p-3 border-t border-sidebar-border">
+      <div className="p-3 border-t border-sidebar-border space-y-1">
+        <button
+          onClick={logoutUser}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-rose-500 hover:bg-rose-500/5 transition-colors text-sm font-medium"
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!collapsed && <span>Secure Exit</span>}
+        </button>
+
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-sm"
@@ -201,191 +233,4 @@ export function AppSidebar() {
       </div>
     </aside>
   );
-}
-
-
-
-// import { useState } from "react";
-// import { NavLink, useLocation } from "react-router-dom";
-// import {
-//   LayoutDashboard,
-//   Users,
-//   TrendingUp,
-//   CheckSquare,
-//   Calendar,
-//   Headphones,
-//   BarChart3,
-//   Settings,
-//   Shield,
-//   ChevronLeft,
-//   ChevronRight,
-//   ChevronDown,
-//   Zap,
-// } from "lucide-react";
-// import { motion, AnimatePresence } from "framer-motion";
-
-// // ✅ Navigation Data
-// const navGroups = [
-//   {
-//     label: "Overview",
-//     icon: LayoutDashboard,
-//     items: [
-//       { label: "Dashboard", icon: LayoutDashboard, path: "/" },
-//       { label: "Analytics", icon: BarChart3, path: "/analytics" },
-//     ],
-//   },
-//   {
-//     label: "CRM",
-//     icon: Users,
-//     items: [
-//       { label: "Leads", icon: Users, path: "/leads" },
-//       { label: "Customers", icon: Users, path: "/customers" },
-//       { label: "Pipeline", icon: TrendingUp, path: "/pipeline" },
-//     ],
-//   },
-//   {
-//     label: "Workspace",
-//     icon: CheckSquare,
-//     items: [
-//       { label: "Tasks", icon: CheckSquare, path: "/tasks" },
-//       { label: "Calendar", icon: Calendar, path: "/calendar" },
-//       { label: "Support", icon: Headphones, path: "/support" },
-//     ],
-//   },
-//   {
-//     label: "Admin",
-//     icon: Settings,
-//     items: [
-//       { label: "Settings", icon: Settings, path: "/settings" },
-//       { label: "Roles", icon: Shield, path: "/roles" },
-//     ],
-//   },
-// ];
-
-// // ✅ Sidebar Group
-// function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
-//   const location = useLocation();
-//   const hasActiveChild = group.items.some(
-//     (item) => location.pathname === item.path
-//   );
-
-//   return (
-//     <div className="mb-2">
-//       {/* Group Header */}
-//       {!collapsed ? (
-//         <button
-//           onClick={onToggle}
-//           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase ${
-//             hasActiveChild
-//               ? "bg-primary/20 text-primary"
-//               : "text-gray-400 hover:bg-gray-200"
-//           }`}
-//         >
-//           <group.icon className="w-4 h-4" />
-//           <span className="flex-1 text-left">{group.label}</span>
-
-//           <motion.div animate={{ rotate: isOpen ? 180 : 0 }}>
-//             <ChevronDown className="w-4 h-4" />
-//           </motion.div>
-//         </button>
-//       ) : (
-//         <div className="flex justify-center py-2">
-//           <div
-//             className={`w-6 h-1 ${
-//               hasActiveChild ? "bg-primary" : "bg-gray-300"
-//             }`}
-//           />
-//         </div>
-//       )}
-
-//       {/* Group Items */}
-//       <AnimatePresence>
-//         {(isOpen || collapsed) && (
-//           <motion.div
-//             initial={{ height: 0 }}
-//             animate={{ height: "auto", opacity: 1 }}
-//             exit={{ height: 0 }}
-//           >
-//             <div className="ml-4 space-y-1">
-//               {group.items.map((item) => {
-//                 const isActive = location.pathname === item.path;
-
-//                 return (
-//                   <NavLink
-//                     key={item.path}
-//                     to={item.path}
-//                     className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm ${
-//                       isActive
-//                         ? "bg-primary text-white"
-//                         : "text-gray-500 hover:bg-gray-200"
-//                     }`}
-//                   >
-//                     <item.icon className="w-4 h-4" />
-//                     {!collapsed && <span>{item.label}</span>}
-//                   </NavLink>
-//                 );
-//               })}
-//             </div>
-//           </motion.div>
-//         )}
-//       </AnimatePresence>
-//     </div>
-//   );
-// }
-
-// // ✅ Main Sidebar
-// export function AppSidebar() {
-//   const [collapsed, setCollapsed] = useState(false);
-//   const location = useLocation();
-
-//   const [openGroups, setOpenGroups] = useState(() => {
-//     const initial = {};
-//     navGroups.forEach((group) => {
-//       initial[group.label] = group.items.some(
-//         (item) => item.path === location.pathname
-//       );
-//     });
-//     return initial;
-//   });
-
-//   const toggleGroup = (label) => {
-//     setOpenGroups((prev) => ({
-//       ...prev,
-//       [label]: !prev[label],
-//     }));
-//   };
-
-//   return (
-//     <aside
-//       className={`h-screen bg-gray-100 border-r transition-all ${
-//         collapsed ? "w-16" : "w-64"
-//       }`}
-//     >
-//       {/* Logo */}
-//       <div className="h-16 flex items-center px-4 border-b">
-//         <Zap />
-//         {!collapsed && <span className="ml-2 font-bold">CRM</span>}
-//       </div>
-
-//       {/* Navigation */}
-//       <nav className="p-3">
-//         {navGroups.map((group) => (
-//           <SidebarGroup
-//             key={group.label}
-//             group={group}
-//             collapsed={collapsed}
-//             isOpen={openGroups[group.label]}
-//             onToggle={() => toggleGroup(group.label)}
-//           />
-//         ))}
-//       </nav>
-
-//       {/* Collapse Button */}
-//       <div className="p-3 border-t">
-//         <button onClick={() => setCollapsed(!collapsed)}>
-//           {collapsed ? <ChevronRight /> : <ChevronLeft />}
-//         </button>
-//       </div>
-//     </aside>
-//   );
-// }
+} 

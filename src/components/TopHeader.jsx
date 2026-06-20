@@ -1,14 +1,9 @@
-import { Bell, Search, Sun, Moon, Plus, User, LogOut, Settings, ChevronDown, UserPlus, FileText, Target, X } from "lucide-react";
+import { Bell, Sun, Moon, User, LogOut, Settings, ChevronDown, X } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-
-const quickAddItems = [
-  { label: "New Lead", icon: UserPlus, description: "Add a new lead to pipeline", path: "/leads" },
-  { label: "New Deal", icon: Target, description: "Create a deal in pipeline", path: "/pipeline" },
-  { label: "New Task", icon: FileText, description: "Assign a task to your team", path: "/tasks" },
-];
+import { useEmployees } from "@/contexts/EmployeeContext";
 
 const notifications = [
   { text: "New lead from website form", time: "2m ago", unread: true },
@@ -58,40 +53,22 @@ export function TopHeader() {
   const { isDark, toggle } = useTheme();
   const navigate = useNavigate();
   const [openPanel, setOpenPanel] = useState("none");
+  
+  const { currentUser, currentRole, logoutUser } = useEmployees();
 
   const closePanel = () => setOpenPanel("none");
   const togglePanel = (panel) => {
     setOpenPanel((prev) => (prev === panel ? "none" : panel));
   };
 
+  const getInitials = (name = "User") => {
+    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  };
+
   return (
     <>
-      <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-6">
-        {/* Search */}
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative max-w-md flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search leads, customers, deals..."
-              className="w-full h-10 pl-10 pr-4 rounded-lg bg-secondary border-none text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
-            />
-            <kbd className="hidden sm:inline-flex absolute right-3 top-1/2 -translate-y-1/2 h-5 px-1.5 rounded border border-border bg-muted text-[10px] text-muted-foreground items-center font-mono">
-              ⌘K
-            </kbd>
-          </div>
-        </div>
-
+      <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-end px-6">
         <div className="flex items-center gap-1.5">
-          {/* Quick Add */}
-          <button
-            onClick={() => togglePanel("quickAdd")}
-            className="h-9 px-4 rounded-lg text-sm font-medium flex items-center gap-2 transition shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/25"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Quick Add</span>
-          </button>
-
           {/* Theme toggle */}
           <button
             onClick={toggle}
@@ -109,48 +86,34 @@ export function TopHeader() {
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full ring-2 ring-card" />
           </button>
 
-          {/* Profile */}
-          <button
-            onClick={() => togglePanel("profile")}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-secondary/50 ml-1"
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-semibold text-xs shadow-sm">
-              JD
-            </div>
-            <ChevronDown
-              className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
-                openPanel === "profile" ? "rotate-180" : ""
-              }`}
-            />
-          </button>
+          {/* Profile Trigger Button */}
+          {currentUser && (
+            <button
+              onClick={() => togglePanel("profile")}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-secondary/50 ml-1"
+            >
+              {currentUser.image ? (
+                <img 
+                  src={currentUser.image} 
+                  alt="" 
+                  className="w-8 h-8 rounded-full object-cover shadow-sm shrink-0 border border-border bg-background"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-semibold text-xs shadow-sm">
+                  {getInitials(currentUser.name)}
+                </div>
+              )}
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${
+                  openPanel === "profile" ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          )}
         </div>
       </header>
 
-      {/* Quick Add Panel */}
-      <SlidePanel open={openPanel === "quickAdd"} onClose={closePanel} title="Quick Add">
-        <div className="p-4 space-y-2">
-          {quickAddItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => {
-                closePanel();
-                navigate(item.path);
-              }}
-              className="w-full flex items-center gap-4 px-4 py-4 rounded-xl text-left hover:bg-secondary transition-colors group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <item.icon className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </SlidePanel>
-
-      {/* Notifications Panel */}
+      {/* Notifications Slide Panel */}
       <SlidePanel open={openPanel === "notifications"} onClose={closePanel} title="Notifications">
         <div className="px-4 py-2 flex items-center justify-between border-b border-border">
           <span className="text-[11px] font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
@@ -183,22 +146,42 @@ export function TopHeader() {
         </div>
       </SlidePanel>
 
-      {/* Profile Panel */}
+      {/* Account Slide Panel */}
       <SlidePanel open={openPanel === "profile"} onClose={closePanel} title="Account">
-        <div className="p-5 flex items-center gap-4 border-b border-border">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-base shadow-md">
-            JD
+        {currentUser && (
+          <div className="p-5 flex items-center gap-4 border-b border-border bg-secondary/20">
+            {currentUser.image ? (
+              <img 
+                src={currentUser.image} 
+                alt="" 
+                className="w-12 h-12 rounded-full object-cover shadow-md border shrink-0 bg-background"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-base shadow-md">
+                {getInitials(currentUser.name)}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-foreground truncate">{currentUser.name}</p>
+              <p className="text-xs text-muted-foreground truncate font-mono mt-0.5 select-all">
+                {currentRole === "admin" ? "john@nexuscrm.com" : currentUser.email}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">John Doe</p>
-            <p className="text-xs text-muted-foreground">john@nexuscrm.com</p>
-          </div>
-        </div>
+        )}
 
         <div className="p-3 space-y-1">
           {[
-            { label: "Profile", icon: User, path: "/settings" },
-            { label: "Settings", icon: Settings, path: "/settings" },
+            { 
+              label: "Profile", 
+              icon: User, 
+              path: "/settings" // ✅ MODIFIED: Changed path destination to target "/settings" directly for all roles
+            },
+            { 
+              label: "Settings", 
+              icon: Settings, 
+              path: "/settings" 
+            },
           ].map((item) => (
             <button
               key={item.label}
@@ -206,7 +189,7 @@ export function TopHeader() {
                 closePanel();
                 navigate(item.path);
               }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-foreground hover:bg-secondary transition-colors font-medium"
             >
               <item.icon className="w-4 h-4 text-muted-foreground" />
               {item.label}
@@ -215,8 +198,14 @@ export function TopHeader() {
         </div>
 
         <div className="p-3 border-t border-border mt-auto">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-destructive hover:bg-destructive/10 transition-colors">
-            <LogOut className="w-4 h-4" />
+          <button 
+            onClick={() => {
+              closePanel();
+              logoutUser();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-rose-500/5 text-destructive hover:bg-destructive hover:text-white transition-all duration-150"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
             Sign out
           </button>
         </div>
