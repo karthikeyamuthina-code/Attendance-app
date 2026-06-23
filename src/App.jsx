@@ -16,9 +16,10 @@ import EmployeePortal from "@/pages/EmployeePortal";
 import EmployeeTasks from "@/pages/EmployeeTasks"; 
 import EmployeeSalary from "@/pages/EmployeeSalary";
 import EmployeeAttendance from "@/pages/EmployeeAttendance"; 
-import EmployeeDetailsPage from "@/pages/EmployeeDetailsPage"; // ✅ ADDED: Integrated employee profile layout
+import EmployeeDetailsPage from "@/pages/EmployeeDetailsPage"; 
 import Dashboard from "@/pages/Dashboard";
 import Leads from "@/pages/Leads";
+import ProjectsPage from "@/pages/ProjectsPage"; // ✅ ADDED: Project page dashboard import
 import Customers from "./pages/Customers";
 import TaskStatus from "@/pages/TaskStatus"; 
 import Pipeline from "@/pages/Pipeline";
@@ -59,6 +60,7 @@ const AppContent = () => {
                 {/* 👑 ADMIN CHANNELS */}
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/leads" element={<Leads />} />
+                <Route path="/projects" element={<ProjectsPage />} /> {/* ✅ ADDED: Admin Project Scope view */}
                 <Route path="/customers" element={<Customers />} />
                 <Route path="/task-status" element={<TaskStatus />} /> 
                 <Route path="/pipeline" element={<Pipeline />} />
@@ -66,7 +68,7 @@ const AppContent = () => {
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/roles" element={<Roles />} />
                 
-                {/* ✅ ACCESS GRANTED FOR ADMIN: Maps the shared sidebar link cleanly to the admin tracking components */}
+                {/* Maps the shared sidebar link cleanly to the admin tracking components */}
                 <Route path="/attendance" element={<Customers />} /> 
                 <Route path="/salary" element={<Pipeline />} /> 
               </>
@@ -77,8 +79,9 @@ const AppContent = () => {
                 <Route path="/task-status" element={<TaskStatus />} />
                 <Route path="/tasks" element={<EmployeeTasks />} /> 
                 
-                {/* ✅ ACCESS GRANTED FOR EMPLOYEE: Maps the shared sidebar links to self-service portals */}
-                <Route path="/leads" element={<EmployeeDetailsPage />} /> {/* ✅ MODIFIED: Swapped fallback navigation string with profile page layout */}
+                {/* Maps the shared sidebar links to self-service portals */}
+                <Route path="/leads" element={<EmployeeDetailsPage />} /> 
+                <Route path="/projects" element={<ProjectsPage />} /> {/* ✅ ADDED: Accessible by employee portal layout */}
                 <Route path="/salary" element={<EmployeeSalary />} />
                 <Route path="/attendance" element={<EmployeeAttendance />} /> 
                 
@@ -107,11 +110,19 @@ const App = () => {
         <UICustomizationProvider>
           <EmployeeProvider>
             <TooltipProvider>
-              <BrowserRouter>
+              
+              {/* ✅ MODIFIED: Configured React Router v7 Future Migration Flags to clear notices */}
+              <BrowserRouter
+                future={{
+                  v7_startTransition: true,
+                  v7_relativeSplatPath: true,
+                }}
+              >
                 <Toaster />
                 <Sonner />
                 <AppContent />
               </BrowserRouter>
+
             </TooltipProvider>
           </EmployeeProvider>
         </UICustomizationProvider>

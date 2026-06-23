@@ -1,75 +1,26 @@
 import { useState } from "react";
 import { Search, DollarSign, CreditCard, Receipt, TrendingUp, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import { useEmployees } from "../contexts/EmployeeContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Pipeline() {
-  const { employees } = useEmployees();
+  const { employees, calculateMonthlySalaryMetrics, processPayrollPayment } = useEmployees();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   
   // Active payment processing window target month
   const currentPayMonth = "June 2026";
-  const targetYear = 2026;
-  const targetMonthIndex = 5; // June (0-indexed)
-
-  // 1. DYNAMIC BASELINE: Compute standard working days in the selected month (Excluding Sundays)
-  const calculateStandardWorkingDays = (year, monthIdx) => {
-    let daysCount = 0;
-    const totalDays = new Date(year, monthIdx + 1, 0).getDate();
-    
-    // ✅ FIXED: Corrected loop variables comparison names down the line
-    for (let d = 1; d <= totalDays; d++) {
-      const checkDay = new Date(year, monthIdx, d).getDay();
-      if (checkDay !== 0) daysCount++; // Exclude Sundays
-    }
-    return daysCount;
-  };
-  
-  // Standard total working days in June 2026 excluding Sundays = 26 Days
-  const totalDaysInCurrentMonth = calculateStandardWorkingDays(targetYear, targetMonthIndex) || 26;
+  const targetYearMonth = "2026-06";
 
   const filteredEmployees = employees.filter((emp) =>
     emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     emp.skill.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Helper calculation to resolve individual employee dynamic payouts
-  const processEmployeePayroll = (emp) => {
-    const baseSalary = emp.salaryMonth || 0;
-
-    // A. Count total absences registered specifically for the active month view
-    let monthlyAbsences = 0;
-    Object.entries(emp.history || {}).forEach(([dateKey, record]) => {
-      const recordDate = new Date(dateKey);
-      if (recordDate.getFullYear() === targetYear && recordDate.getMonth() === targetMonthIndex) {
-        if (record?.present === false) {
-          monthlyAbsences++;
-        }
-      }
-    });
-
-    // B. Apply Corporate Leave Rules: 3 combined allowed leaves (2 Paid + 1 Emergency)
-    const allowedLeavesThreshold = 3;
-    const unpaidLeavesCount = Math.max(0, monthlyAbsences - allowedLeavesThreshold);
-
-    // C. Calculate final dynamic payout deduction variables
-    let finalNetPayout = baseSalary;
-    if (unpaidLeavesCount > 0 && totalDaysInCurrentMonth > 0) {
-      const dailySalaryRate = baseSalary / totalDaysInCurrentMonth;
-      const totalLossOfPayDeduction = dailySalaryRate * unpaidLeavesCount;
-      finalNetPayout = Math.max(0, Math.round(baseSalary - totalLossOfPayDeduction));
-    }
-
-    return {
-      monthlyAbsences,
-      unpaidLeavesCount,
-      finalNetPayout
-    };
-  };
-
   // 2. COMPUTE GLOBAL DASHBOARD STATS OVERVIEW CARD LEDGERS (Using processed final dynamic values)
   const totalBaseMonthlyPayroll = filteredEmployees.reduce((sum, emp) => {
-    const { finalNetPayout } = processEmployeePayroll(emp);
-    return sum + finalNetPayout;
+    const metrics = calculateMonthlySalaryMetrics(emp, targetYearMonth);
+    return sum + metrics.netPayout;
   }, 0);
 
   const averageEmployeeSalary = filteredEmployees.length > 0 
@@ -77,6 +28,14 @@ export default function Pipeline() {
     : 0;
 
   const totalAnnualPayrollCommitment = totalBaseMonthlyPayroll * 12;
+
+  const handleDisbursePayment = (empId, name) => {
+    processPayrollPayment(empId, targetYearMonth);
+    toast({
+      title: "Transaction Successful",
+      description: `Payroll pay slip processed for ${name} [${currentPayMonth}].`
+    });
+  };
 
   return (
     <div className="px-6 py-6 max-w-[1600px] mx-auto space-y-6">
@@ -146,10 +105,9 @@ export default function Pipeline() {
           </thead>
           <tbody>
             {filteredEmployees.map((emp, i) => {
-              // Calculate specific dynamic breakdown attributes for the loop iteration row item
-              const { monthlyAbsences, unpaidLeavesCount, finalNetPayout } = processEmployeePayroll(emp);
-              const baseSalary = emp.salaryMonth || 0;
-              const hasSalaryDeduction = unpaidLeavesCount > 0;
+              const metrics = calculateMonthlySalaryMetrics(emp, targetYearMonth);
+              const isPaid = (emp.payrollHistory || []).some(p => p.month === targetYearMonth);
+              const hasSalaryDeduction = metrics.lopDeduction > 0;
 
               return (
                 <tr key={emp.id} className="border-b border-border last:border-0 hover:bg-secondary/10 transition">
@@ -169,12 +127,12 @@ export default function Pipeline() {
                   {/* Total Absences Registry Flag Column */}
                   <td className="py-4 px-4 text-center">
                     <div className="flex flex-col items-center justify-center">
-                      <span className={`font-semibold text-sm ${monthlyAbsences > 3 ? "text-rose-500 font-bold" : "text-foreground"}`}>
-                        {monthlyAbsences} days
+                      <span className={`font-semibold text-sm ${metrics.totalAbsences > 3 ? "text-rose-500 font-bold" : "text-foreground"}`}>
+                        {metrics.totalAbsences} days
                       </span>
                       {hasSalaryDeduction && (
                         <span className="text-[10px] text-rose-400 font-medium">
-                          ({unpaidLeavesCount} Days Unpaid L.O.P)
+                          ({metrics.unexcusedAbsences} Days Unpaid L.O.P)
                         </span>
                       )}
                     </div>
@@ -182,33 +140,40 @@ export default function Pipeline() {
                   
                   {/* Original Fixed Contract Base Salary */}
                   <td className="py-4 px-4 text-right text-muted-foreground font-medium">
-                    ${baseSalary.toLocaleString()}
+                    ${metrics.baseSalary.toLocaleString()}
                   </td>
                   
                   {/* dynamic Net Adjusted Calculated Final Payment Display cell */}
                   <td className={`py-4 px-4 text-right font-bold text-sm ${hasSalaryDeduction ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
-                    ${finalNetPayout.toLocaleString()}
+                    ${metrics.netPayout.toLocaleString()}
                   </td>
 
                   {/* Dynamic Disbursement Status Tag */}
                   <td className="py-4 px-4 text-center">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      hasSalaryDeduction 
-                        ? "bg-amber-500/10 text-amber-600" 
-                        : "bg-emerald-500/10 text-emerald-600"
+                      isPaid 
+                        ? "bg-emerald-500/10 text-emerald-600" 
+                        : hasSalaryDeduction 
+                          ? "bg-amber-500/10 text-amber-600" 
+                          : "bg-blue-500/10 text-blue-600"
                     }`}>
-                      {hasSalaryDeduction ? <AlertTriangle size={12}/> : <CheckCircle size={12}/>}
-                      {hasSalaryDeduction ? "Deducted" : "Full Pay"}
+                      {isPaid ? <CheckCircle size={12}/> : hasSalaryDeduction ? <AlertTriangle size={12}/> : <CheckCircle size={12}/>}
+                      {isPaid ? "Paid" : hasSalaryDeduction ? "Deduction" : "Full Pay"}
                     </span>
                   </td>
 
                   {/* Action Print Pay Slip Trigger Option */}
                   <td className="py-4 px-4 text-center">
                     <button 
-                      onClick={() => alert(`Direct Bank Transfer Summary:\n\nEmployee: ${emp.name}\nBase Contract: $${baseSalary.toLocaleString()}\nAbsences Recorded: ${monthlyAbsences} days\nUnpaid Leave Days: ${unpaidLeavesCount}\n=====================\nFinal Disbursed Net Pay: $${finalNetPayout.toLocaleString()}`)}
-                      className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition inline-flex items-center gap-1.5 shadow-xs"
+                      onClick={() => handleDisbursePayment(emp.empId, emp.name)}
+                      disabled={isPaid}
+                      className={`h-8 px-3 rounded-md text-xs font-medium transition inline-flex items-center gap-1.5 shadow-xs ${
+                        isPaid
+                          ? "bg-secondary text-muted-foreground cursor-not-allowed opacity-60"
+                          : "bg-primary text-primary-foreground hover:opacity-90"
+                      }`}
                     >
-                      <CreditCard className="w-3.5 h-3.5" /> Pay Slip
+                      <CreditCard className="w-3.5 h-3.5" /> {isPaid ? "Sent" : "Pay Slip"}
                     </button>
                   </td>
                 </tr>

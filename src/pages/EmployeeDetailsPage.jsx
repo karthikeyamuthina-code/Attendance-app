@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useEmployees } from "../contexts/EmployeeContext";
-import { User, Code2, Info, CheckCircle2, Save, Mail, ShieldCheck, Briefcase } from "lucide-react";
+import { User, Code2, Info, CheckCircle2, Save, Mail, Briefcase } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function EmployeeDetailsPage() {
@@ -11,19 +11,16 @@ export default function EmployeeDetailsPage() {
     return <div className="p-6 text-sm text-muted-foreground">Loading structural profile dossier...</div>;
   }
 
-  // Local state initialized with context parameters or fallbacks
   const [aboutText, setAboutText] = useState(
     currentUser.about || "React developer passionate about crafting pixel-perfect, highly operational user experiences and state architectures."
   );
   const [isEditing, setIsEditing] = useState(false);
 
-  // Split skills array string dynamically or provide a structured default fallback
   const skillsList = currentUser.skills || [
     "React.js", "Vite Build Tool", "JavaScript (ES6+)", "Tailwind CSS", "State Management Architecture"
   ];
 
   const handleSaveProfile = () => {
-    // Commit edits directly to the global persistence store context layers
     if (editEmployee) {
       editEmployee(currentUser.id, { about: aboutText });
     }
@@ -36,8 +33,6 @@ export default function EmployeeDetailsPage() {
 
   return (
     <div className="px-6 py-6 max-w-[1200px] mx-auto space-y-6">
-      
-      {/* ─── BANNER TITLES ─── */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
           <User className="text-primary" /> My Profile Workspace
@@ -48,12 +43,10 @@ export default function EmployeeDetailsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        
-        {/* ─── LEFT COLUMN: CORE DOSSIER CARD ─── */}
         <div className="bg-card border border-border rounded-2xl p-6 text-center space-y-4 shadow-xs lg:col-span-1">
           <div className="relative mx-auto w-24 h-24">
             <img 
-              src={currentUser.image} 
+              src={currentUser.image || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser.name)}`} 
               alt={currentUser.name} 
               className="w-full h-full rounded-full object-cover border-2 border-primary/20 shadow-inner bg-secondary"
             />
@@ -77,10 +70,7 @@ export default function EmployeeDetailsPage() {
           </div>
         </div>
 
-        {/* ─── RIGHT COLUMN: SKILLS & DYNAMIC CONTENT STATEMENT ─── */}
         <div className="lg:col-span-2 space-y-6">
-          
-          {/* ABOUT ME BIOGRAPHY CARD MODULE */}
           <div className="bg-card border border-border rounded-2xl p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
@@ -117,7 +107,6 @@ export default function EmployeeDetailsPage() {
             )}
           </div>
 
-          {/* PROFICIENCY SKILLS MATRIX MODULE */}
           <div className="bg-card border border-border rounded-2xl p-6 shadow-xs space-y-4">
             <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2 border-b border-border pb-3">
               <Code2 size={16} className="text-primary" /> Endorsed Skillsets Index
@@ -134,10 +123,8 @@ export default function EmployeeDetailsPage() {
               ))}
             </div>
           </div>
-
         </div>
-
       </div>
     </div>
-  );
+  ); 
 }

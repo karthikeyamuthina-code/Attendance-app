@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useEmployees } from "../contexts/EmployeeContext";
 import {
   LayoutDashboard, Users, UserCircle, TrendingUp, CheckSquare,
-  ChevronLeft, ChevronRight, ChevronDown, Zap, Layers, Briefcase, Cog, ListTodo, LogOut, Settings, Shield
+  ChevronLeft, ChevronRight, ChevronDown, Zap, Layers, Briefcase, Cog, ListTodo, LogOut, Settings, Shield, FolderKanban
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -20,6 +20,7 @@ const navGroups = [
     icon: Briefcase,
     items: [
       { label: "Employee Details", icon: Users, path: "/leads" },
+      { label: "Project Lists", icon: FolderKanban, path: "/projects", adminOnly: true }, // ✅ ADDED: Flagged as adminOnly
       { label: "Tasks", icon: CheckSquare, path: "/tasks" },
       { label: "Salary Details", icon: TrendingUp, path: "/salary" },
     ],
@@ -46,9 +47,10 @@ function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
   const location = useLocation();
   const { currentRole } = useEmployees(); 
 
+  // ✅ MODIFIED: Filters out items flagged as adminOnly if the logged-in role is an employee
   const visibleItems = group.items.filter((item) => {
     if (currentRole !== "admin") {
-      if (item.path === "/task-status" || item.path === "/roles") {
+      if (item.adminOnly || item.path === "/task-status" || item.path === "/roles") {
         return false; 
       }
     }
@@ -60,8 +62,6 @@ function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
   }
 
   const hasActiveChild = visibleItems.some((item) => location.pathname === item.path);
-
-  // ✅ FIXED: Dynamically renames the text string label to "Employee" for general workspace portal views
   const displayLabel = (group.label === "Admin" && currentRole !== "admin") ? "Employee" : group.label;
 
   return (
@@ -77,10 +77,7 @@ function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
         >
           <group.icon className="w-4 h-4 shrink-0" />
           <span className="flex-1 text-left">{displayLabel}</span>
-          <motion.div
-            animate={{ rotate: isOpen ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
+          <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
             <ChevronDown className="w-3.5 h-3.5" />
           </motion.div>
         </button>
@@ -116,20 +113,6 @@ function SidebarGroup({ group, collapsed, isOpen, onToggle }) {
                   >
                     <item.icon className="w-[18px] h-[18px] shrink-0" />
                     {!collapsed && <span>{item.label}</span>}
-
-                    {collapsed && isActive && (
-                      <motion.div
-                        layoutId="activeIndicator"
-                        className="absolute -right-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary"
-                      />
-                    )}
-
-                    {collapsed && (
-                      <div className="absolute left-full ml-3 px-2.5 py-1.5 rounded-md bg-foreground text-background text-xs font-medium whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg pointer-events-none">
-                        {item.label}
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2 h-2 bg-foreground rotate-45 rounded-[1px]" />
-                      </div>
-                    )}
                   </NavLink>
                 );
               })}
@@ -150,7 +133,7 @@ export function AppSidebar() {
     const initial = {};
     navGroups.forEach((group) => {
       initial[group.label] = group.items.some((item) => {
-        if (currentRole !== "admin" && (item.path === "/task-status" || item.path === "/roles")) return false;
+        if (currentRole !== "admin" && (item.adminOnly || item.path === "/task-status" || item.path === "/roles")) return false;
         return item.path === location.pathname;
       });
     });
@@ -162,42 +145,24 @@ export function AppSidebar() {
   };
 
   return (
-    <aside
-      className={`sticky top-0 h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ${
-        collapsed ? "w-[72px]" : "w-[260px]"
-      }`}
-    >
+    <aside className={`sticky top-0 h-screen flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ${collapsed ? "w-[72px]" : "w-[260px]"}`}>
       <div className="h-16 flex items-center px-5 border-b border-sidebar-border gap-3">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0 shadow-lg shadow-primary/30">
           <Zap className="w-4 h-4 text-primary-foreground" />
         </div>
-        {!collapsed && (
-          <span className="font-heading font-bold text-lg text-sidebar-primary-foreground tracking-tight">
-            Heigths IT Solutions
-          </span>
-        )}
+        {!collapsed && <span className="font-heading font-bold text-lg text-sidebar-primary-foreground tracking-tight">Heigths IT Solutions</span>}
       </div>
 
       <nav className="flex-1 py-4 px-3 overflow-y-auto scrollbar-thin">
         {navGroups.map((group) => (
-          <SidebarGroup
-            key={group.label}
-            group={group}
-            collapsed={collapsed}
-            isOpen={openGroups[group.label] ?? false}
-            onToggle={() => toggleGroup(group.label)}
-          />
+          <SidebarGroup key={group.label} group={group} collapsed={collapsed} isOpen={openGroups[group.label] ?? false} onToggle={() => toggleGroup(group.label)} />
         ))}
       </nav>
 
       {!collapsed && currentUser && (
         <div className="mx-3 mb-1 p-3 rounded-xl bg-sidebar-accent/40 border border-sidebar-border/50">
           <div className="flex items-center gap-3">
-            <img 
-              src={currentUser.image || "https://api.dicebear.com/7.x/initials/svg?seed=User"} 
-              alt="" 
-              className="w-8 h-8 rounded-full object-cover border bg-background shrink-0"
-            />
+            <img src={currentUser.image || "https://api.dicebear.com/7.x/initials/svg?seed=User"} alt="" className="w-8 h-8 rounded-full object-cover border bg-background shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-sidebar-primary-foreground truncate">{currentUser.name}</p>
               <p className="text-[10px] text-sidebar-muted uppercase tracking-wider font-semibold truncate font-mono">
@@ -209,28 +174,14 @@ export function AppSidebar() {
       )}
 
       <div className="p-3 border-t border-sidebar-border space-y-1">
-        <button
-          onClick={logoutUser}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-rose-500 hover:bg-rose-500/5 transition-colors text-sm font-medium"
-        >
+        <button onClick={logoutUser} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-rose-500 hover:bg-rose-500/5 transition-colors text-sm font-medium">
           <LogOut className="w-4 h-4 shrink-0" />
           {!collapsed && <span>Secure Exit</span>}
         </button>
-
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-sm"
-        >
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <>
-              <ChevronLeft className="w-4 h-4" />
-              <span>Collapse</span>
-            </>
-          )}
+        <button onClick={() => setCollapsed(!collapsed)} className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors text-sm">
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <><ChevronLeft className="w-4 h-4" /><span>Collapse</span></>}
         </button>
       </div>
     </aside>
   );
-} 
+}

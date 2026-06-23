@@ -1,67 +1,69 @@
 import { useState } from "react";
 import { useEmployees } from "@/contexts/EmployeeContext";
-import { CheckSquare, Plus, X, Calendar, User, FileText, CheckCircle2, Clock } from "lucide-react";
+import { Plus, X, CheckSquare, Calendar, User, FolderKanban, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Tasks() {
-  const { employees, tasks, addTask } = useEmployees();
+  const { tasks, addTask, employees, projects } = useEmployees();
   const { toast } = useToast();
-  
-  // Controls the slide panel drawer visibility state
+
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Form Field States
-  const [taskText, setTaskText] = useState("");
-  const [selectedEmpId, setSelectedEmpId] = useState("");
+  // Form states
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split("T")[0]);
 
-  const handleSubmitTask = (e) => {
+  const handleOpenPanel = () => {
+    setIsPanelOpen(true);
+    if (projects && projects.length > 0) setSelectedProjectId(projects[0].id.toString());
+    if (employees && employees.length > 0) setSelectedEmployeeId(employees[0].empId);
+  };
+
+  const handleCreateTaskSubmit = (e) => {
     e.preventDefault();
-    if (!taskText.trim() || !selectedEmpId) {
+
+    const targetProject = projects.find(p => p.id.toString() === selectedProjectId);
+    const targetEmployee = employees.find(emp => emp.empId === selectedEmployeeId);
+
+    if (!targetProject || !targetEmployee) {
       toast({
-        title: "Validation Error",
-        description: "Please populate all mandatory task text objectives and assignment fields.",
+        title: "Assignment Failed",
+        description: "Please select a valid project and an employee to assign.",
         variant: "destructive"
       });
       return;
     }
 
-    const assignedEmployee = employees.find(emp => emp.empId === selectedEmpId);
-
-    const newTaskObj = {
-      text: taskText,
-      employeeId: selectedEmpId,
-      employeeName: assignedEmployee ? assignedEmployee.name : "Unknown Staff",
-      designation: assignedEmployee ? assignedEmployee.skill : "Staff Member",
-      dateAssigned: targetDate,
+    const newTaskPayload = {
+      text: `${targetProject.name} — ${targetProject.description}`,
+      employeeId: targetEmployee.empId,
+      employeeName: targetEmployee.name,
+      designation: targetEmployee.skill || "Team Member",
+      dateAssigned: targetDate
     };
 
-    addTask(newTaskObj);
-    
-    // Reset Form & Close Drawer
-    setTaskText("");
-    setSelectedEmpId("");
+    addTask(newTaskPayload);
     setIsPanelOpen(false);
 
     toast({
-      title: "Task Assigned",
-      description: `Successfully allocated operational objective to ${newTaskObj.employeeName}.`,
+      title: "Task Assigned Successfully",
+      description: `Assigned "${targetProject.name}" to ${targetEmployee.name}.`,
     });
   };
 
-  // Filter Tasks via Global Search Bar
-  const filteredTasks = tasks.filter(t => 
-    t.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTasks = (tasks || []).filter(task => 
+    task.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    task.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    task.text.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="px-6 py-6 max-w-[1200px] mx-auto space-y-6 relative min-h-[calc(100vh-4rem)]">
       
-      {/* HEADER BAR SUMMARY */}
+      {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
@@ -72,68 +74,60 @@ export default function Tasks() {
           </p>
         </div>
         
-        {/* Trigger Button to Slide Open Form Drawer */}
         <button
-          onClick={() => setIsPanelOpen(true)}
-          className="inline-flex items-center gap-2 h-10 px-4 bg-primary text-primary-foreground font-bold text-xs rounded-lg shadow-sm hover:opacity-95 transition-all select-none self-start sm:self-center"
+          onClick={handleOpenPanel}
+          className="inline-flex items-center gap-2 h-10 px-4 bg-primary text-primary-foreground font-bold text-xs rounded-lg shadow-sm hover:opacity-95 transition-all self-start sm:self-center"
         >
-          <Plus size={16} /> Assign New Task
+          <Plus size={16} /> New Assignment
         </button>
       </div>
 
-      {/* FILTER SEARCH DISPATCH BAR */}
+      {/* FILTER SEARCH BAR */}
       <div className="w-full max-w-md">
-        <input
-          type="text"
-          placeholder="Search tasks by ID, name, or objective..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-10 px-4 rounded-lg bg-card border border-border text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-        />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search tasks by ID, name, or objective..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-10 pl-9 pr-4 rounded-lg bg-card border border-border text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+          />
+        </div>
       </div>
 
-      {/* RENDER TASKS MAIN REGISTRY TABLE */}
+      {/* ASSIGNMENTS ROSTER LIST */}
       <div className="bg-card border border-border rounded-xl p-5 overflow-hidden shadow-2xs">
         <div className="border border-border rounded-lg overflow-x-auto">
-          <table className="w-full text-sm min-w-[800px]">
+          <table className="w-full text-sm min-w-[750px]">
             <thead>
               <tr className="border-b border-border bg-secondary/30 text-muted-foreground text-xs uppercase tracking-wider h-11">
                 <th className="text-left py-2 px-4 font-semibold w-16">S.No</th>
                 <th className="text-left py-2 px-4 font-semibold w-36">Employee ID</th>
                 <th className="text-left py-2 px-4 font-semibold w-48">Employee Name</th>
-                <th className="text-left py-2 px-4 font-semibold w-40">Designation</th>
-                <th className="text-left py-2 px-4 font-semibold">Assigned Task Objective</th>
-                <th className="text-left py-2 px-4 font-semibold w-32">Due Date</th>
-                <th className="text-center py-2 px-4 font-semibold w-32">Task Status</th>
+                <th className="text-left py-2 px-4 font-semibold w-44">Designation</th>
+                <th className="text-left py-2 px-4 font-semibold">Assigned Task Objective / Project Description</th>
+                {/* ✅ MODIFIED: Removed Status Column Header */}
+                <th className="text-left py-2 px-4 font-semibold w-36">Target Date</th>
               </tr>
             </thead>
             <tbody>
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-sm text-muted-foreground italic font-medium">
-                    No active assignments matched current metrics.
+                  <td colSpan={6} className="text-center py-8 text-sm text-muted-foreground italic font-medium">
+                    No task tracking assignments logged matching the query context.
                   </td>
                 </tr>
               ) : (
                 filteredTasks.map((task, idx) => (
                   <tr key={task.id || idx} className="border-b border-border last:border-0 hover:bg-secondary/10 transition h-14">
                     <td className="py-2 px-4 text-muted-foreground font-medium">{idx + 1}</td>
-                    <td className="py-2 px-4 font-mono text-xs font-bold text-foreground select-all">{task.employeeId}</td>
+                    <td className="py-2 px-4 font-mono text-xs font-bold text-foreground">{task.employeeId}</td>
                     <td className="py-2 px-4 font-bold text-foreground">{task.employeeName}</td>
-                    <td className="py-2 px-4 text-muted-foreground text-xs font-semibold">{task.designation}</td>
-                    <td className="py-2 px-4 text-foreground font-medium pr-6">{task.text}</td>
-                    <td className="py-2 px-4 font-mono text-xs font-bold text-foreground">{task.dateAssigned}</td>
-                    <td className="py-2 px-4 text-center">
-                      {task.completed ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600">
-                          <CheckCircle2 size={12} /> Finished
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600">
-                          <Clock size={12} /> Incomplete
-                        </span>
-                      )}
-                    </td>
+                    <td className="py-2 px-4 text-xs font-semibold text-muted-foreground">{task.designation}</td>
+                    <td className="py-2 px-4 text-foreground text-xs font-medium pr-4 leading-relaxed">{task.text}</td>
+                    {/* ✅ MODIFIED: Cleaned out status column cell block completely */}
+                    <td className="py-2 px-4 font-mono text-xs text-muted-foreground">{task.dateAssigned}</td>
                   </tr>
                 ))
               )}
@@ -142,11 +136,10 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* ─── SLIDE-OUT RIGHT PANEL DRAWER ─── */}
+      {/* CREATE TASK ASSIGNMENT DRAWER SIDE SHEET */}
       <AnimatePresence>
         {isPanelOpen && (
           <>
-            {/* Backdrop Blur Overlay */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -156,15 +149,13 @@ export default function Tasks() {
               className="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 cursor-pointer"
             />
 
-            {/* Slide-out Form Card Content */}
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 250 }}
-              className="fixed right-0 top-0 h-screen w-full sm:w-[420px] bg-card border-l border-border shadow-2xl z-50 flex flex-col p-6 space-y-6"
+              className="fixed right-0 top-0 h-screen w-full sm:w-[460px] bg-card border-l border-border shadow-2xl z-50 flex flex-col p-6 space-y-6"
             >
-              {/* Drawer Top Navigation Section */}
               <div className="flex items-center justify-between border-b border-border pb-4">
                 <div className="flex items-center gap-2">
                   <CheckSquare className="text-primary w-5 h-5" />
@@ -178,56 +169,64 @@ export default function Tasks() {
                 </button>
               </div>
 
-              {/* Form Body Fields Wrapper */}
-              <form onSubmit={handleSubmitTask} className="flex-1 flex flex-col space-y-5 overflow-y-auto pr-1">
-                
-                {/* Field: Description Description text */}
+              <form onSubmit={handleCreateTaskSubmit} className="flex-1 flex flex-col space-y-5 overflow-y-auto pr-1">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <FileText size={14} className="text-primary" /> Task Description / Objective
-                  </label>
-                  <textarea
-                    rows={4}
-                    placeholder="Specify target milestones, execution scopes, or operational requirements details..."
-                    value={taskText}
-                    onChange={(e) => setTaskText(e.target.value)}
-                    className="w-full p-3 rounded-lg bg-secondary/50 border border-border text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 resize-none leading-relaxed"
-                  />
-                </div>
-
-                {/* Field: Employee Selection Dropdown */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <User size={14} className="text-primary" /> Assignee Staff Member
+                    <FolderKanban size={14} className="text-primary" /> Select Source Project Workflow <span className="text-rose-500">*</span>
                   </label>
                   <select
-                    value={selectedEmpId}
-                    onChange={(e) => setSelectedEmpId(e.target.value)}
-                    className="w-full h-11 px-3 rounded-lg bg-secondary/50 border border-border text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 appearance-none cursor-pointer"
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-lg bg-secondary/50 border border-border text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 appearance-none cursor-pointer"
                   >
-                    <option value="" disabled>Choose Employee Profile...</option>
-                    {employees.map((emp) => (
+                    {projects && projects.length === 0 ? (
+                      <option value="">No projects found. Create one first!</option>
+                    ) : (
+                      projects.map(p => (
+                        <option key={p.id} value={p.id}>
+                          [{p.projectId}] {p.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
+                {selectedProjectId && projects.find(p => p.id.toString() === selectedProjectId) && (
+                  <div className="p-3 bg-secondary/30 border border-border rounded-lg text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-bold text-foreground block mb-0.5">Project Scope Preview:</span>
+                    {projects.find(p => p.id.toString() === selectedProjectId).description}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <User size={14} className="text-primary" /> Assignee Staff Member <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-lg bg-secondary/50 border border-border text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 appearance-none cursor-pointer"
+                  >
+                    {employees.map(emp => (
                       <option key={emp.id} value={emp.empId}>
-                        {emp.name} ({emp.skill})
+                        {emp.name} ({emp.skill || "Staff"}) — {emp.empId}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Field: Target Calendar Date */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Calendar size={14} className="text-primary" /> Target Delivery Date
+                    <Calendar size={14} className="text-primary" /> Target Delivery Date <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-full h-11 px-3.5 rounded-lg bg-secondary/50 border border-border text-sm font-mono font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="w-full h-11 px-3.5 rounded-lg bg-secondary/50 border border-border text-sm font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 font-mono"
                   />
                 </div>
 
-                {/* Actions Row at bottom of drawer */}
                 <div className="pt-6 border-t border-border flex items-center justify-end gap-3 mt-auto">
                   <button
                     type="button"
@@ -243,13 +242,11 @@ export default function Tasks() {
                     Confirm & Save
                   </button>
                 </div>
-
               </form>
             </motion.div>
           </>
         )}
       </AnimatePresence>
-
     </div>
   );
 }
